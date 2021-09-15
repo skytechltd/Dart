@@ -24,7 +24,8 @@ if __name__ == '__main__':
     directions_map = np.zeros([args['size'], 5])
 
 
-    cap = cv.VideoCapture(0)
+    #cap = cv.VideoCapture(0)
+    cap = cv.VideoCapture('http://0.0.0.0:5000/video_feed')
     if args['record']:
         h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
         w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
