@@ -1,0 +1,104 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Simulation (Debug)",
+			"request": "launch",
+			"preLaunchTask": "Simulation Linux Debug Build",
+			"program": "/home/david/Dart/Simulation/Binaries/Linux/Simulation-Linux-Debug",
+			"args": [
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "Simulation (DebugGame)",
+			"request": "launch",
+			"preLaunchTask": "Simulation Linux DebugGame Build",
+			"program": "/home/david/Dart/Simulation/Binaries/Linux/Simulation-Linux-DebugGame",
+			"args": [
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "Simulation (Development)",
+			"request": "launch",
+			"preLaunchTask": "Simulation Linux Development Build",
+			"program": "/home/david/Dart/Simulation/Binaries/Linux/Simulation",
+			"args": [
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "Simulation (Shipping)",
+			"request": "launch",
+			"preLaunchTask": "Simulation Linux Shipping Build",
+			"program": "/home/david/Dart/Simulation/Binaries/Linux/Simulation-Linux-Shipping",
+			"args": [
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "Simulation (Test)",
+			"request": "launch",
+			"preLaunchTask": "Simulation Linux Test Build",
+			"program": "/home/david/Dart/Simulation/Binaries/Linux/Simulation-Linux-Test",
+			"args": [
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "SimulationEditor (Debug)",
+			"request": "launch",
+			"preLaunchTask": "SimulationEditor Linux Debug Build",
+			"program": "/home/david/Dart/UnrealEngine/Engine/Binaries/Linux/UE4Editor-Linux-Debug",
+			"args": [
+				"/home/david/Dart/Simulation/Simulation.uproject"
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "SimulationEditor (DebugGame)",
+			"request": "launch",
+			"preLaunchTask": "SimulationEditor Linux DebugGame Build",
+			"program": "/home/david/Dart/UnrealEngine/Engine/Binaries/Linux/UE4Editor-Linux-DebugGame",
+			"args": [
+				"/home/david/Dart/Simulation/Simulation.uproject"
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "SimulationEditor (Development)",
+			"request": "launch",
+			"preLaunchTask": "SimulationEditor Linux Development Build",
+			"program": "/home/david/Dart/UnrealEngine/Engine/Binaries/Linux/UE4Editor",
+			"args": [
+				"/home/david/Dart/Simulation/Simulation.uproject"
+			],
+			"cwd": "/home/david/Dart/UnrealEngine",
+			"type": "lldb"
+		},
+		{
+			"name": "Generate Project Files",
+			"type": "mono",
+			"request": "launch",
+			"program": "/home/david/Dart/UnrealEngine/Engine/Binaries/DotNET/UnrealBuildTool.exe",
+			"console": "internalConsole",
+			"args": [
+				"-projectfiles",
+				"-vscode",
+				"-project=\"/home/david/Dart/Simulation/Simulation.uproject\"",
+				"-game",
+				"-engine"
+			],
+			"internalConsoleOptions": "openOnSessionStart",
+			"cwd": "/home/david/Dart/UnrealEngine"
+		}
+	]
+}

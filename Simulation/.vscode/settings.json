@@ -1,0 +1,7 @@
+{
+	"files.exclude": {
+		"/home/david/Dart/Simulation/.vscode": true,
+		"/home/david/Dart/Simulation/Content": true,
+		"/home/david/Dart/Simulation/Intermediate": true
+	}
+}
