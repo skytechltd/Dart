@@ -1,0 +1,96 @@
+{
+	"SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
+	"SettingsVersion": 1.2,
+	"SimMode": "Multirotor",
+	"ClockSpeed": 1,
+	"ViewMode": "FlyWithMe",
+	"PawnPaths": {
+		"Default": {"PawnBP": "Class'/AirSim/Blueprints/BP_FlyingPawn.BP_FlyingPawn_C'"},
+		"SmallBalloon": {"PawnBP": "Class'/Game/BP_SmallBalloon_Pawn.BP_SmallBalloon_Pawn_C'"},
+		"Cessna": {"PawnBP": "Class'/Game/BP_Cessna_Pawn.BP_Cessna_Pawn_C'"},
+		"Helicopter": {"PawnBP": "Class'/Game/BP_Helicopter_Pawn.BP_Helicopter_Pawn_C'"}
+	},
+	"CameraDirector": {
+		"FollowDistance": -5,
+		"X": -15, "Y": 0, "Z": -3,
+		"Pitch": 0, "Roll": 0, "Yaw": 0
+	},
+	"CameraDefaults":
+	{
+		"CaptureSettings": [
+		  {
+			"ImageType": 0,
+			"Width": 256,
+			"Height": 144,
+			"FOV_Degrees": 90,
+			"AutoExposureSpeed": 100,
+			"AutoExposureBias": 0,
+			"AutoExposureMaxBrightness": 0.64,
+			"AutoExposureMinBrightness": 0.03,
+			"MotionBlurAmount": 0,
+			"TargetGamma": 1.0,
+			"ProjectionMode": "",
+			"OrthoWidth": 5.12
+		  }
+		]
+	},
+	"TimeOfDay": {
+		"Enabled": false,
+		"StartDateTime": "",
+		"CelestialClockSpeed": 1,
+		"StartDateTimeDst": false,
+		"UpdateIntervalSecs": 60
+	},
+	"SubWindows": [
+		{"WindowID": 2, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone", "Visible": false}
+	  ],
+	"Vehicles": {
+		"Drone": {
+		  "AutoCreate": true,
+		  "VehicleType": "SimpleFlight",
+		  "comment": "These offsets are no good as they init relative coordinates to each vehicle",
+		  "PawnPath": "Default",
+		  "X": 0, "Y": 0, "Z": 0, "Yaw": 0,
+		  "Cameras": {
+			"DroneCamera": {
+			  "CameraName": "DroneCamera`",
+			  "CaptureSettings": [
+			  {
+			  "ImageType": 0,
+			  "Width": 512,
+			  "Height": 322,
+			  "FOV_Degrees": 90
+			  }
+			  ],
+			  "X": -0.1,
+			  "Y": 0,
+			  "Z": -0.4,
+			  "Pitch": 0,
+			  "Roll": 0,
+			  "Yaw": 0
+			}
+		  }
+		},
+		"Cessna": {
+		  "AutoCreate": true,
+		  "VehicleType": "SimpleFlight",
+		  "PawnPath": "Cessna",
+		  "X": 20, "Y": 0, "Z": 0,
+		  "Yaw": 0
+		},
+		"Helicopter": {
+			"AutoCreate": true,
+			"VehicleType": "SimpleFlight",
+			"PawnPath": "Helicopter",
+			"X": 10, "Y": -10, "Z": 0,
+			"Yaw": 0
+		},
+		"Helicopter2": {
+			"AutoCreate": true,
+			"VehicleType": "SimpleFlight",
+			"PawnPath": "Helicopter",
+			"X": 10, "Y": 10, "Z": 0,
+			"Yaw": 0
+		}
+    }
+}
