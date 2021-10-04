@@ -1,0 +1,28 @@
+{
+    "settings": {
+        "setting1": 0 
+    },
+    "daa_algos":[
+        {"opticalflow": "path?", "Args?": "?"}
+    ],
+    "comment": "This could be default and overridden by scenario def - an insect vs a 747 will need a difference scenario vector set",
+    "scenarios": {
+        "dron_spos": [0,0,-50],
+        "dron_epos": [0,0,-50],
+        "dron_velc": 10, 
+        "pawn_epos": [5,0,-50],
+        "pawn_velc": 10,
+        "comment": "Careful for 45 below we don't get stuck in terrain!",
+        "pawn_sdist": 50,
+        "coll_dist": 5,
+        "comment": "Ahead is 90,90, See https://en.wikipedia.org/wiki/Spherical_coordinate_system",
+        "pawn_apr_ang": [[90,90],[45,90],[135,90],
+                         [90,45],[45,45],[135,45],
+                         [90,135],[45,135],[135,135]]
+     },
+    "pawns": [
+        {"id": "1mball",
+         "path": "?list of aircraft?"
+        }
+    ]
+}
