@@ -63,7 +63,7 @@ class Detection(Enum):
 
 class AirVehicle:
     ACC_DELAY = 2 # Small delay until vehicle gets up to speed then assume t=d*s
-    def __init__(self,n,s,distance=0):
+    def __init__(self,n,s,distance=0,approach = [0,0]):
         self.name = n
         # UE4 global position
         self.origin = airsim.Vector3r(s['X'],s['Y'],s['Z'])
@@ -71,11 +71,12 @@ class AirVehicle:
         self.offset = airsim.Vector3r(s['X'],s['Y'],s['Z'])
         self.timeout = 3e+38 # Default, timeout to prevent vehicles getting stuck on terrain
         self.distance = distance
-        self.approach = [0,0]
+        self.approach = approach
 
+    # Set trajectory as global coords
     def setTrajectory(self,a,b,v,yaw=0):
-        self.start = airsim.Vector3r(a[0],a[1],a[2]) - self.offset
-        self.end =   airsim.Vector3r(b[0],b[1],b[2]) - self.offset
+        self.start = airsim.Vector3r(a[0],a[1],a[2])# + self.offset
+        self.end =   airsim.Vector3r(b[0],b[1],b[2])# + self.offset
         self.v = v
         self.yaw = -(yaw-90)
         if self.distance>0:
@@ -94,14 +95,26 @@ class Collision:
         self.hascollided = False
         self.inrange = False
 
+    def setVehicles(self,drone,pawn):
+        self.drone = drone
+        self.pawn = pawn
 
     def update(self,d,p):
 
         if self.hascollided:
             return False
 
-        self.distance = distance.euclidean(d,p)
+        # Using scipy lib
+        #self.distance = distance.euclidean((d-self.drone.offset,p-self.pawn.offset)
 
+        # Global back to local
+        d=d+self.drone.offset
+        p=p+self.pawn.offset
+
+        # Using airsim lib for Vector3r
+        self.distance = d.distance_to(p)
+
+        # Check if within collision distance
         self.hascollided = True if self.distance < self.detection_hit else False
 
         if not self.inrange:
@@ -112,6 +125,7 @@ class Collision:
     # Collide the drone and pawn
     def start(self,cl,drone,pawn):
 
+        self.setVehicles(drone,pawn)
        
         cl.enableApiControl(True, "Drone")
         cl.enableApiControl(True, pawn.name)
@@ -127,9 +141,15 @@ class Collision:
         pt.join()
 
 
-        # Shift to start positions
-        #print("Drone SPos(%.1f,%.1f,%.1f), V:%d"%(drone.start.x_val, drone.start.y_val, drone.start.z_val,drone.v))
-        #print("Pawn  SPos(%.1f,%.1f,%.1f), V:%d, Y:%d"%(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val,pawn.v,pawn.yaw))
+        # Shift to start global positions
+        print("Drone SPos(%.1f,%.1f,%.1f), V:%d"%(drone.start.x_val, drone.start.y_val, drone.start.z_val,drone.v))
+        print("Pawn  SPos(%.1f,%.1f,%.1f), V:%d, Y:%d"%(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val,pawn.v,pawn.yaw))
+        print("Pawn  EPos(%.1f,%.1f,%.1f), V:%d, Y:%d"%(pawn.end.x_val, pawn.end.y_val, pawn.end.z_val,pawn.v,pawn.yaw))
+        
+        # Convert to global positions
+        pawn.start = pawn.start - pawn.offset
+        pawn.end = pawn.end - pawn.offset
+
         dt = cl.moveToPositionAsync(drone.start.x_val, drone.start.y_val, drone.start.z_val, drone.v, \
                                             vehicle_name="Drone", timeout_sec=drone.timeout)
         pt = cl.moveToPositionAsync(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val, pawn.v,  \
@@ -139,7 +159,7 @@ class Collision:
 
         # Let drone settle as global motion from terrain is throwing false positive with optical flow first round
         print("Sleeping")
-        #time.sleep(10)
+        time.sleep(5)
         # Debug
         #airsim.wait_key('Press any key to collide')
 
@@ -179,15 +199,16 @@ class Collision:
         # TODO - add enum to collision class!!!
         detection=Detection.MISSED
         while True:
+            # These are wrt object local coordinates, we need to add offset to work out global
             dronepos = cl.getMultirotorState(vehicle_name="Drone").kinematics_estimated.position
             pawnpos = cl.getMultirotorState(vehicle_name=pawn.name).kinematics_estimated.position
-            #print("Pos: ",dronepos.x_val)
+
             # Has Pawn reached collision position within radius?
             # WARNING! : Take care as two meshes can be touching but their centers still far appart!
        
             # Better inside the class as it uses distance?
             #can call update(x,y,z) then do collision.distanceto, hascollided=false
-            self.update([dronepos.x_val,dronepos.y_val,dronepos.z_val],[pawnpos.x_val,pawnpos.y_val,pawnpos.z_val])
+            self.update(dronepos,pawnpos)
 
             # Missed detection,det=MISSED set above 
             if self.hascollided:                
@@ -283,7 +304,8 @@ class Collisions:
 
             for ang in self.setup['pawn_apr_ang']:
                 #print(self.setup['pawn_sdist'])
-                v=AirVehicle(name,settings,distance=self.setup['pawn_sdist'])
+                v=AirVehicle(name,settings,distance=self.setup['pawn_sdist'],approach=ang)
+                # Set trajectory in local coords
                 v.setTrajectory(self.get_appr_spos(ang,self.setup['pawn_sdist'],self.setup['pawn_epos']), \
                             self.setup['pawn_epos'],self.setup['pawn_velc'],yaw=ang[0])
                 self.collisions.append(v)
@@ -317,10 +339,12 @@ class Collisions:
             i=1
             for pawn in self.collisions:
                 print("Running simulation for %s %d of %d..."%(pawn.name,i,len(self.collisions)))
-                c=Collision(self.setup)
-                c.start(self.client,self.drone,pawn)
+                # Average over additional runs
+                for _ in range(1):
+                    c=Collision(self.setup)
+                    c.start(self.client,self.drone,pawn)
                 i+=1
-                break
+              
         
     # Collision range 50 > x > 5
     #collision = Collision([90,90],setup['scenarios'])
