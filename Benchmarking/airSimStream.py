@@ -10,7 +10,7 @@ import threading
 import time
 
 
-CAMERA_NAME = '0'
+CAMERA_NAME = 'DroneCamera'
 IMAGE_TYPE = airsim.ImageType.Scene
 DECODE_EXTENSION = '.jpg'
 
@@ -20,7 +20,7 @@ th=None
 
 def frame_generator():
     while (True):
-        response_image = client.simGetImage(CAMERA_NAME, IMAGE_TYPE)
+        response_image = client.simGetImage(CAMERA_NAME, IMAGE_TYPE,vehicle_name='Drone')
         np_response_image = np.asarray(bytearray(response_image), dtype="uint8")
         decoded_frame = cv2.imdecode(np_response_image, cv2.IMREAD_COLOR)
         ret, encoded_jpeg = cv2.imencode(DECODE_EXTENSION, decoded_frame)
