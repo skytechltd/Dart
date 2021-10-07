@@ -1,3 +1,7 @@
+import asyncio
+from mavsdk import System
+from mavsdk.offboard import (OffboardError, PositionNedYaw)
+
 import threading
 import cv2 as cv
 import numpy as np
@@ -10,11 +14,22 @@ import logging
 logging.basicConfig(level=logging.DEBUG,
                     format='(%(threadName)-9s) %(message)s',)
 
+
+
+
+
 stop_event=threading.Event()
 
 def daa_opticalflow(stop_event):
 
+
+# TODO pass cmd args here from runsim ???????
+
+
+
     ap = ArgumentParser()
+    ap.add_argument('--HITL_PX4',action="store_true", default=False, dest='HITL_PX4')
+    ap.add_argument('--HITL_DAA',action="store_true", default=False, dest='HITL_DAA')
     ap.add_argument('-pscale', '--pyr_scale', default=0.5, type=float,help='Image scale (<1) to build pyramids for each image')
     ap.add_argument('-l', '--levels', default=3, type=int, help='Number of pyramid layers')
     ap.add_argument('-w', '--winsize', default=15, type=int, help='Averaging window size')
@@ -27,10 +42,28 @@ def daa_opticalflow(stop_event):
     directions_map = np.zeros([args['size'], 5])
 
 
-    #cap = cv.VideoCapture(0) # Camera Pi
-    cap = cv.VideoCapture('http://0.0.0.0:5000/video_feed') # Stream
-    #cap = cv.VideoCapture('dronedirecthit.avi')
-    #cap = cv.VideoCapture('new.avi')
+
+    HITL_PX4=args['HITL_PX4']
+    HITL_DAA=args['HITL_DAA']
+
+
+    # If HITL connect over mavlink
+    if HITL_DAA:
+        # Init the drone
+        drone = System()
+        #drone.connect(system_address="udp://:14550") # Not picking up UDP for some reason
+        #await drone.connect(system_address="serial:///dev/ttyACM0:115200") # Working, straight from USB
+        #await drone.connect(system_address="serial:///dev/ttyACM0:115200") #57600,115200
+
+        # TODO - add settings option for remote sim PC on network
+        cap = cv.VideoCapture('http://192.168.1.148:5000/video_feed') # Stream remotely
+
+    else:
+
+        #cap = cv.VideoCapture(0) # RaspPi default camera
+        cap = cv.VideoCapture('http://0.0.0.0:5000/video_feed') # Stream
+        #cap = cv.VideoCapture('dronedirecthit.avi')
+
 
 
     frame_previous = cap.read()[1]
@@ -106,21 +139,58 @@ def daa_opticalflow(stop_event):
             text = 'WAITING'
 
         #print(text)
+
         if not text=="WAITING":
             print('Detection!')
-            break
+            # Using airsim drone
+            #if not HITL_PX4:
+            #    break
+            # We're running on offboard computer
+            if HITL_DAA:
+                
+                # Move 1m to the right
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(do_avoid())
 
-
-        #hsv[:, :, 0] = ang_180
-
-        #hsv[:, :, 2] = cv.normalize(mag, None, 0, 255, cv.NORM_MINMAX)
-        ##rgb = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)
+                break
+            else:
+                break
         
-        #frame = cv.flip(frame, 1)
- 
-     
-        #cv.imshow('Frame', frame)
-        #k = cv.waitKey(1) & 0xff# We never test for a TN/FN when flying normally so we don't know the recall
+        # Thread kill
+        if stop_event.is_set():
+            break
+        
+
+
+# Use offboard control to move the drone 5 to the right
+# Great - but we will dangerously lose control of the drone due to global motion false positives
+#
+# 
+async def do_avoid():
+
+    drone = System()
+    await drone.connect(system_address="serial:///dev/serial0:57600")
+
+    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
+
+    print("-- Starting offboard")
+    try:
+        await drone.offboard.start()
+    except OffboardError as error:
+        print(f"Starting offboard mode failed with error code: {error._result.result}")
+        print("-- Disarming")
+     #   await drone.action.disarm()
+        return
+
+    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 5.0, 0.0, 0.0))
+    
+
+    print("-- Stopping offboard")
+    try:
+        await drone.offboard.stop()
+    except OffboardError as error:
+        print(f"Stopping offboard mode failed with error code: {error._result.result}")
+
 
 
 def start():
@@ -134,23 +204,19 @@ def stop():
 
 
 
-def test(stop_event):
-    logging.debug('Running...')
-    for i in range(10):
-        print("Hello >>>")
-        time.sleep(1)
-        #i#f stop_event.is_set():
-         #   break
-
 # Test
-def go():
+def test():
     t=start()
     #t.is_alive()
-    #time.sleep(30)
-    #stop()
+    time.sleep(30)
+    stop()
     t.join()
 
 
 if __name__ == '__main__':
-    #daa_opticalflow()
-    go()
+    
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(daa_opticalflow(stop_event))
+
+
+    #test()
