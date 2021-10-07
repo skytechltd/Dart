@@ -17,6 +17,8 @@ import daa_opticalflow as daa
 
 DEFAULT_SETUPS='setups.json'
 RES_FILE='daares.csv'
+DAA_HITL=False
+
 
 #
 # Core script for running collisions
@@ -69,7 +71,7 @@ class AirVehicle:
         self.origin = airsim.Vector3r(s['X'],s['Y'],s['Z'])
         # Offsets from origin
         self.offset = airsim.Vector3r(s['X'],s['Y'],s['Z'])
-        self.timeout = 3e+38 # Default, timeout to prevent vehicles getting stuck on terrain
+        self.timeout = 120 # Default, timeout to prevent vehicles getting stuck on terrain
         self.distance = distance
         self.approach = approach
 
@@ -95,6 +97,7 @@ class Collision:
         self.hascollided = False
         self.inrange = False
 
+ 
     def setVehicles(self,drone,pawn):
         self.drone = drone
         self.pawn = pawn
@@ -126,24 +129,18 @@ class Collision:
     def start(self,cl,drone,pawn):
 
         self.setVehicles(drone,pawn)
-       
-        cl.enableApiControl(True, "Drone")
-        cl.enableApiControl(True, pawn.name)
- 
-        # Arm, takeoff and move to position, would be better to teleport but they just fall to the ground
-        cl.armDisarm(True, "Drone") 
-        cl.armDisarm(True, pawn.name)
 
         # Take off
         dt = cl.takeoffAsync(vehicle_name="Drone")
-        pt = cl.takeoffAsync(vehicle_name=pawn.name)
+        #pt = cl.takeoffAsync(vehicle_name=pawn.name)
         dt.join()
-        pt.join()
+        #pt.join()
+
 
 
         # Shift to start global positions
-        print("Drone SPos(%.1f,%.1f,%.1f), V:%d"%(drone.start.x_val, drone.start.y_val, drone.start.z_val,drone.v))
-        print("Pawn  SPos(%.1f,%.1f,%.1f), V:%d, Y:%d"%(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val,pawn.v,pawn.yaw))
+        print("Drone SPos(%.1f,%.1f,%.1f), T: %d, V:%d"%(drone.start.x_val, drone.start.y_val, drone.start.z_val,drone.timeout,drone.v))
+        print("Pawn  SPos(%.1f,%.1f,%.1f), T: %d, V:%d, Y:%d"%(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val,pawn.timeout,pawn.v,pawn.yaw))
         print("Pawn  EPos(%.1f,%.1f,%.1f), V:%d, Y:%d"%(pawn.end.x_val, pawn.end.y_val, pawn.end.z_val,pawn.v,pawn.yaw))
         
         # Convert to global positions
@@ -151,11 +148,16 @@ class Collision:
         pawn.end = pawn.end - pawn.offset
 
         dt = cl.moveToPositionAsync(drone.start.x_val, drone.start.y_val, drone.start.z_val, drone.v, \
-                                            vehicle_name="Drone", timeout_sec=drone.timeout)
-        pt = cl.moveToPositionAsync(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val, pawn.v,  \
-                                            vehicle_name=pawn.name, timeout_sec=pawn.timeout)
+                                            vehicle_name="Drone", timeout_sec=drone.timeout) #timeout_sec=drone.timeout
+        #pt = cl.moveToPositionAsync(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val, pawn.v,  \
+        #                                    vehicle_name=pawn.name, timeout_sec=pawn.timeout)
         dt.join()
-        pt.join()
+        #pt.join()
+      
+        #cl.reset()
+
+        return
+
 
         # Let drone settle as global motion from terrain is throwing false positive with optical flow first round
         print("Sleeping")
@@ -178,9 +180,9 @@ class Collision:
   
 
         # DAA run, break if detected, deem as fair detection or false alarm
-        daa_thr=daa.start()
-        # Try catch here ???????
-        print("DAA started...")
+        if not DAA_HITL:
+            daa_thr=daa.start()
+            print("SITL DAA started...")
 
         # Set pawn pose approach pitch and yaw,0
         # client.simSetObjectPose("Pawn",pose,teleport=True)
@@ -196,7 +198,7 @@ class Collision:
 
 
 
-        # TODO - add enum to collision class!!!
+        # Loop until we collide
         detection=Detection.MISSED
         while True:
             # These are wrt object local coordinates, we need to add offset to work out global
@@ -213,21 +215,34 @@ class Collision:
             # Missed detection,det=MISSED set above 
             if self.hascollided:                
                 print("Pawn ended, killing DAA") 
-                # Stop DAA thread gracefully
-                daa.stop()
+                if not DAA_HITL:
+                    # Stop DAA thread gracefully
+                    daa.stop()
                 break
 
             # Has DAA thread exited?
-            if not daa_thr.is_alive():
+            if not DAA_HITL and not daa_thr.is_alive():
                 # Stop pawn and reset, break and reset below
-                if self.inrange:
-                    print("DAA ended, killing pawn- - in range")
-                else:
-                    print("DAA ended, killing pawn - out")
-            
-                print("Dist: ",self.distance)
+                print("Proximity: ",self.distance)
                 detection = Detection.TRUE if self.inrange else Detection.FALSE
                 break
+
+
+            # TODO - How to signal from HITL mission PC DAA fired?
+
+            # Approaches?
+            # Custom Mavlink message
+            # Is it moving
+
+            # ??????
+
+
+
+
+
+            # ???????
+
+
 
             # Debug only as the delay skews the daa result
             #time.sleep(1)
@@ -248,12 +263,6 @@ class Collision:
             #f.write("(%.1f,%.1f,%.1f) %d %.2f\n"%(pawn.end.x, pawn.end.y, pawn.end.z, detection.value, collision.distance))
 
    
-        # Tidy up
-        cl.armDisarm(False, "Drone")
-        cl.armDisarm(False, pawn.name)
-        cl.enableApiControl(False, "Drone")
-        cl.enableApiControl(False, pawn.name)
-        cl.reset()
 
         return 
 
@@ -266,6 +275,26 @@ class Collision:
 class Collisions:
 
     def __init__(self):
+
+
+
+        # Command line args
+        
+        # ??????
+
+        # Setting.json formatting
+        
+        # Write new changes
+
+
+
+        # If config has changed prompt user to restart airsim on UE4
+
+        # CP new and last? - Also don't overwrite incremental changes - add option --leavesettings
+
+        # TODO ???
+
+
 
         try:
             self.client = airsim.MultirotorClient()
@@ -292,6 +321,7 @@ class Collisions:
         # Set drone trajectory from setup file
         self.drone.setTrajectory(self.setup['dron_spos'],self.setup['dron_epos'],self.setup['dron_velc'])
 
+
         # Set drone and drop 'Drone' from the dict as we can't avoid ourselves looping through in start()
         del self.vehicle_settings['Drone']
     
@@ -309,6 +339,7 @@ class Collisions:
                 v.setTrajectory(self.get_appr_spos(ang,self.setup['pawn_sdist'],self.setup['pawn_epos']), \
                             self.setup['pawn_epos'],self.setup['pawn_velc'],yaw=ang[0])
                 self.collisions.append(v)
+
             break # DEBUG - REMOVE
 
 
@@ -336,15 +367,40 @@ class Collisions:
 
     def start(self):
 
-            i=1
-            for pawn in self.collisions:
-                print("Running simulation for %s %d of %d..."%(pawn.name,i,len(self.collisions)))
-                # Average over additional runs
-                for _ in range(1):
-                    c=Collision(self.setup)
-                    c.start(self.client,self.drone,pawn)
-                i+=1
-              
+        cl = self.client
+        cl.enableApiControl(True, "Drone")
+        cl.armDisarm(True, "Drone") 
+ 
+     
+        # TODO - break air pawn types into dictionary and loop
+
+        cl.enableApiControl(True, "_Cessna")
+        cl.armDisarm(True, "_Cessna")
+
+        
+        i=1
+        for pawn in self.collisions:
+            print("Running simulation for %s %d of %d..."%(pawn.name,i,len(self.collisions)))
+                
+            # Average over additional runs
+            for _ in range(1):
+                c=Collision(self.setup)
+                c.start(self.client,self.drone,pawn)
+            i+=1
+            break # Debug
+
+
+
+      # Tidy up
+
+
+need to rest as can't just disarm with HITL!
+
+        cl.armDisarm(False, "Drone")
+        cl.armDisarm(False, "_Cessna")
+        cl.enableApiControl(False, "Drone")
+        cl.enableApiControl(False, "_Cessna")
+        cl.reset()   
         
     # Collision range 50 > x > 5
     #collision = Collision([90,90],setup['scenarios'])
