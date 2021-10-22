@@ -105,10 +105,9 @@ def merge_box(boxes):
     return [b for b in boxes if b]
 '''
 
-# Product above may be faster but isn't working!
-def IOU(b1,b2):
+# Product method above may be faster but isn't working!
+def IOU(b1,b2,offset=0):
 
-    offset = 40
     x1,y1,x2,y2=b1
     x3,y3,x4,y4=b2
     x_inter1 = max(x1,x3)
@@ -129,10 +128,10 @@ def IOU(b1,b2):
 
 
 # Method
-# A. Drop smaller boxes within larger ones
+# Drop smaller boxes within larger ones
 # Merge overlapping
 # Merge close by
-# Reiterate until no more are changed
+# Reiterate until no more have changed
 
 class Break(Exception): pass
 def merge_bboxes(bboxes):
@@ -164,18 +163,6 @@ def merge_bboxes(bboxes):
     return bboxes
 
 
-
-    # Take first box, does it overlap with anything else
-        #if 
-         #   print("Overlap")
-    # If it does remove the two boxes
-
-    # Add new combined box and repeat
-
-
-
-
-    #return bboxes
         
 
 
