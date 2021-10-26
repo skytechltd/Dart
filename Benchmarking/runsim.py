@@ -12,12 +12,14 @@ from enum import Enum, unique
 
 
 sys.path.insert(0, '../DAA')
-import daa_opticalflow as daa
+#import daa_opticalflow as daa
+import daa_tracking as daa
 
 
 DEFAULT_SETUPS='setups.json'
 RES_FILE='daares.csv'
-DAA_HITL=False
+HITL_PX4=False
+HITL_DAA=False
 
 
 #
@@ -116,6 +118,7 @@ class Collision:
 
         # Using airsim lib for Vector3r
         self.distance = d.distance_to(p)
+        #print(self.distance)
 
         # Check if within collision distance
         self.hascollided = True if self.distance < self.detection_hit else False
@@ -130,38 +133,31 @@ class Collision:
 
         self.setVehicles(drone,pawn)
 
-        # Take off
-        dt = cl.takeoffAsync(vehicle_name="Drone")
-        #pt = cl.takeoffAsync(vehicle_name=pawn.name)
-        dt.join()
-        #pt.join()
-
-
-
+  
         # Shift to start global positions
         print("Drone SPos(%.1f,%.1f,%.1f), T: %d, V:%d"%(drone.start.x_val, drone.start.y_val, drone.start.z_val,drone.timeout,drone.v))
         print("Pawn  SPos(%.1f,%.1f,%.1f), T: %d, V:%d, Y:%d"%(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val,pawn.timeout,pawn.v,pawn.yaw))
         print("Pawn  EPos(%.1f,%.1f,%.1f), V:%d, Y:%d"%(pawn.end.x_val, pawn.end.y_val, pawn.end.z_val,pawn.v,pawn.yaw))
         
         # Convert to global positions
-        pawn.start = pawn.start - pawn.offset
-        pawn.end = pawn.end - pawn.offset
+        #pawn.start = pawn.start - pawn.offset
+        #pawn.end = pawn.end - pawn.offset
+
+        # Todo set drone yaw to fw, sometimes this is drifting because of HITL failsafe
 
         dt = cl.moveToPositionAsync(drone.start.x_val, drone.start.y_val, drone.start.z_val, drone.v, \
                                             vehicle_name="Drone", timeout_sec=drone.timeout) #timeout_sec=drone.timeout
-        #pt = cl.moveToPositionAsync(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val, pawn.v,  \
-        #                                    vehicle_name=pawn.name, timeout_sec=pawn.timeout)
+        pt = cl.moveToPositionAsync(pawn.start.x_val, pawn.start.y_val, pawn.start.z_val, pawn.v,  \
+                                            vehicle_name=pawn.name, timeout_sec=pawn.timeout)
         dt.join()
-        #pt.join()
+        pt.join()
       
-        #cl.reset()
-
-        return
+        #return
 
 
         # Let drone settle as global motion from terrain is throwing false positive with optical flow first round
         print("Sleeping")
-        time.sleep(5)
+        time.sleep(10)
         # Debug
         #airsim.wait_key('Press any key to collide')
 
@@ -180,7 +176,7 @@ class Collision:
   
 
         # DAA run, break if detected, deem as fair detection or false alarm
-        if not DAA_HITL:
+        if not HITL_DAA:
             daa_thr=daa.start()
             print("SITL DAA started...")
 
@@ -215,18 +211,23 @@ class Collision:
             # Missed detection,det=MISSED set above 
             if self.hascollided:                
                 print("Pawn ended, killing DAA") 
-                if not DAA_HITL:
+                if not HITL_DAA:
                     # Stop DAA thread gracefully
+                    print(">>DAA Stop >>")
                     daa.stop()
                 break
 
             # Has DAA thread exited?
-            if not DAA_HITL and not daa_thr.is_alive():
+            if not HITL_DAA and not daa_thr.is_alive():
                 # Stop pawn and reset, break and reset below
                 print("Proximity: ",self.distance)
                 detection = Detection.TRUE if self.inrange else Detection.FALSE
                 break
 
+
+            # Has DAA been triggered offboard?
+            #if HITL_DAA:
+            #    print("????????")
 
             # TODO - How to signal from HITL mission PC DAA fired?
 
@@ -236,6 +237,10 @@ class Collision:
 
             # ??????
 
+            #yuck keep reading mavlink param for a setting to receive DAA signal, then reset it after!
+
+            #at start of next run, it will keep pinging away! The DAA needs to back off as we only need the pos3darray
+            #signal the once!
 
 
 
@@ -280,7 +285,7 @@ class Collisions:
 
         # Command line args
         
-        # ??????
+        # TODO ??????
 
         # Setting.json formatting
         
@@ -367,6 +372,7 @@ class Collisions:
 
     def start(self):
 
+
         cl = self.client
         cl.enableApiControl(True, "Drone")
         cl.armDisarm(True, "Drone") 
@@ -377,30 +383,65 @@ class Collisions:
         cl.enableApiControl(True, "_Cessna")
         cl.armDisarm(True, "_Cessna")
 
+
+         # With HITL based on lat,lon we will be at altitude not (0,0,0)
+        if HITL_PX4:
+            dp = cl.getMultirotorState(vehicle_name="Drone").kinematics_estimated.position
+            print("Drone takeoff position: (%.2f,%.2f,%.2f)"%(dp.x_val,dp.y_val,dp.z_val))
+            self.drone.offset = airsim.Vector3r(0,0,dp.z_val)
         
+
+        # Take off
+        dt = cl.takeoffAsync(vehicle_name="Drone")
+        pt = cl.takeoffAsync(vehicle_name="_Cessna")
+        dt.join()
+        pt.join()
+
+       
+
         i=1
         for pawn in self.collisions:
             print("Running simulation for %s %d of %d..."%(pawn.name,i,len(self.collisions)))
-                
+            #break
+            
+            # Convert to global positions
+            pawn.start = pawn.start - pawn.offset
+            pawn.end = pawn.end - pawn.offset
+
             # Average over additional runs
             for _ in range(1):
                 c=Collision(self.setup)
                 c.start(self.client,self.drone,pawn)
             i+=1
-            break # Debug
+            #break # Debug
 
+   
+        # Shut down
 
+        # HITL gets upset with reset so we have to treat it like a real vehicle and return to land!
+        # The kinematic model seems tp pick up some yaw bias that isn't correct leades to drift
+        # Default seems to kick in as well in some cases!
+        #if HITL_PX4:
+            #print("Returning")
+            #dt = cl.goHomeAsync(vehicle_name="Drone").join
+            #print("Landing")
+            #cl.landAsync(vehicle_name="Drone").join()
+          
 
-      # Tidy up
-
-
-need to rest as can't just disarm with HITL!
-
+        # Non hardware can just be reset and it will respawn
         cl.armDisarm(False, "Drone")
         cl.armDisarm(False, "_Cessna")
         cl.enableApiControl(False, "Drone")
         cl.enableApiControl(False, "_Cessna")
         cl.reset()   
+
+
+        if HITL_PX4:
+            # Above code doesn't always behave - prompt user to hard reset
+            print("Please stop Airsim UE4 player and unplug hardware to hard reset and clear bias")
+            input("Press return key...")
+            print("Now plugin in hardware, start Airsim, restart airStreamer")
+
         
     # Collision range 50 > x > 5
     #collision = Collision([90,90],setup['scenarios'])
