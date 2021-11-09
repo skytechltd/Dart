@@ -5,6 +5,8 @@
     "daa_algos":[
         {"opticalflow": "path?", "Args?": "?"}
     ],
+    "comment": "Make sure this address is accessable on network and port 5000 is open",
+    "simhost_address": "192.168.1.148",
     "comment": "This could be default and overridden by scenario def - an insect vs a 747 will need a difference scenario vector set",
     "scenarios": {
         "dron_spos": [0,0,-50],
