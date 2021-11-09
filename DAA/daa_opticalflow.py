@@ -50,7 +50,7 @@ def daa_opticalflow(stop_event):
     # If HITL connect over mavlink
     if HITL_DAA:
         # Init the drone
-        drone = System()
+        #drone = System()
         #drone.connect(system_address="udp://:14550") # Not picking up UDP for some reason
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") # Working, straight from USB
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") #57600,115200
@@ -149,8 +149,9 @@ def daa_opticalflow(stop_event):
             if HITL_DAA:
                 
                 # Move 1m to the right
-                loop = asyncio.get_event_loop()
-                loop.run_until_complete(do_avoid())
+                # Not quite working, throws errors!
+                #loop = asyncio.get_event_loop()
+                #loop.run_until_complete(do_avoid())
 
                 break
             else:
@@ -182,7 +183,8 @@ async def do_avoid():
      #   await drone.action.disarm()
         return
 
-    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 5.0, 0.0, 0.0))
+    print("-- Emergency avoid")
+    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 10.0, 0.0, 0.0))
     
 
     print("-- Stopping offboard")

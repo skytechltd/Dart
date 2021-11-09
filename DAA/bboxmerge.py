@@ -105,6 +105,21 @@ def merge_box(boxes):
     return [b for b in boxes if b]
 '''
 
+def bbox_to_rect(bbox):
+    return (bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3])
+
+# Test if the second bbox is inside the first
+def inside_bbox(b1,b2,offset=0):
+    
+    x1,y1,x2,y2=b1
+    x3,y3,x4,y4=b2
+
+    if x1-offset<x3 and y1-offset<y3 and x2+offset>x4 and y2+offset>y4:
+        return True
+    else:
+        return False
+
+
 # Product method above may be faster but isn't working!
 def IOU(b1,b2,offset=0):
 
@@ -134,7 +149,7 @@ def IOU(b1,b2,offset=0):
 # Reiterate until no more have changed
 
 class Break(Exception): pass
-def merge_bboxes(bboxes):
+def merge_bboxes(bboxes,offset=0):
 
     if len(bboxes) < 2:
         return bboxes
@@ -151,7 +166,7 @@ def merge_bboxes(bboxes):
     while True:
         nc=len(bboxes)
         for b1,b2 in combinations(bboxes, r=2):
-            is_merge, new_box = IOU(b1,b2)
+            is_merge, new_box = IOU(b1,b2,offset)
             if is_merge:
                 bboxes.remove(b1)
                 bboxes.remove(b2)

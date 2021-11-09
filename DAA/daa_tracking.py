@@ -115,7 +115,7 @@ class DAA_Tracking:
 
         flag=False
 
-        print("Tracking %d objects"%(len(self.UFOS)))
+        #print("Tracking %d objects"%(len(self.UFOS)))
 
         for i,ufo in enumerate(self.UFOS):
 
