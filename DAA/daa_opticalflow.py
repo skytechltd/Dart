@@ -11,24 +11,29 @@ from argparse import ArgumentParser
 import time
 import threading
 import logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='(%(threadName)-9s) %(message)s',)
+logging.basicConfig(filename="daa_opticalflow.log",
+                    filemode='w',
+                    format='%(asctime)s,%(msecs)d %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO)
 
 
 
+# TODO 
+#
+#   * pass cmd args here from runsim ???????
+#   
+#   * Does DAA need to know about PX4? Perhps future aavlink signalling back to sim? (We tried Mvlink nd it was slow 1.5s)
+#
 
 
-stop_event=threading.Event()
+
 
 def daa_opticalflow(stop_event):
 
 
-# TODO pass cmd args here from runsim ???????
-
-
-
     ap = ArgumentParser()
-    ap.add_argument('--HITL_PX4',action="store_true", default=False, dest='HITL_PX4')
+    #ap.add_argument('--HITL_PX4',action="store_true", default=False, dest='HITL_PX4')
     ap.add_argument('--HITL_DAA',action="store_true", default=False, dest='HITL_DAA')
     ap.add_argument('-pscale', '--pyr_scale', default=0.5, type=float,help='Image scale (<1) to build pyramids for each image')
     ap.add_argument('-l', '--levels', default=3, type=int, help='Number of pyramid layers')
@@ -43,7 +48,7 @@ def daa_opticalflow(stop_event):
 
 
 
-    HITL_PX4=args['HITL_PX4']
+    #HITL_PX4=args['HITL_PX4']
     HITL_DAA=args['HITL_DAA']
 
 
@@ -56,7 +61,7 @@ def daa_opticalflow(stop_event):
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") #57600,115200
 
         # TODO - add settings option for remote sim PC on network
-        cap = cv.VideoCapture('http://192.168.1.148:5000/video_feed') # Stream remotely
+        cap = cv.VideoCapture('http://192.168.1.149:5000/video_feed') # Stream remotely
 
     else:
 
@@ -82,6 +87,11 @@ def daa_opticalflow(stop_event):
     }
 
     while True:
+
+
+        # Start timer
+        timer = cv.getTickCount()
+
 
         grabbed, frame = cap.read()
         if not grabbed:
@@ -132,30 +142,34 @@ def daa_opticalflow(stop_event):
                 text = 'Moving up'
             elif loc == 3:
                 text = 'Moving to the left'
-
             else:
                 text = 'WAITING'
         else:
             text = 'WAITING'
 
-        #print(text)
-
+        #print("DAA: "+text)
+  
         if not text=="WAITING":
-            print('Detection!')
+            print('Detection! ',text)
+            logging.info("Collision detection")
             # Using airsim drone
             #if not HITL_PX4:
             #    break
             # We're running on offboard computer
-            if HITL_DAA:
+            #if HITL_DAA:
                 
                 # Move 1m to the right
                 # Not quite working, throws errors!
                 #loop = asyncio.get_event_loop()
                 #loop.run_until_complete(do_avoid())
 
-                break
-            else:
-                break
+                #break
+
+        # Calculate Frames per second (FPS)
+        fps = cv.getTickFrequency() / (cv.getTickCount() - timer)
+
+        #print("FPS : " + str(int(fps)))
+
         
         # Thread kill
         if stop_event.is_set():
@@ -167,7 +181,7 @@ def daa_opticalflow(stop_event):
 # Great - but we will dangerously lose control of the drone due to global motion false positives
 #
 # 
-async def do_avoid():
+'''async def do_avoid():
 
     drone = System()
     await drone.connect(system_address="serial:///dev/serial0:57600")
@@ -192,18 +206,24 @@ async def do_avoid():
         await drone.offboard.stop()
     except OffboardError as error:
         print(f"Stopping offboard mode failed with error code: {error._result.result}")
+'''
 
+async def _daa_opticalflow(stop_event):
+    daa_opticalflow(stop_event)
+
+
+stop_event=threading.Event()
 
 
 def start():
-    t = threading.Thread(target=daa_opticalflow, args=(stop_event,), daemon=True)
+    t = threading.Thread(target=_daa_opticalflow, args=(stop_event,), daemon=True)
     #t = threading.Thread(target=test, args=(stop_event,), daemon=True)
     t.start()
     return t
 
+
 def stop():
     stop_event.set()
-
 
 
 # Test

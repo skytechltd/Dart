@@ -16,9 +16,11 @@ import copy
 from bboxmerge import merge_bboxes, IOU, inside_bbox, bbox_to_rect
 import threading
 import logging
-logging.basicConfig(level=logging.DEBUG,
-                    filename="daa.log",
-                    format='(%(threadName)-9s) %(message)s',)
+logging.basicConfig(filename="daa_tracking.log",
+                    filemode='w',
+                    format='%(asctime)s,%(msecs)d %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO)
 
 
 
@@ -139,12 +141,12 @@ class DAA_Tracking:
          
 
                     #self.avoid_action(bbox,frame)
-
+                    print("Collision detection")
                     logging.info("Collision detection")
                     flag=True
                 else:
-                    #print("Waiting")
-                    #logging.info("Waiting")
+                    print("Waiting")
+                    logging.info("Waiting")
                     pass
 
 
@@ -155,7 +157,7 @@ class DAA_Tracking:
                 # Tracking failure
                 #cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
                 #print("Tracking failed for ID, deleting")
-                logging.info("Tracking failed for ID, deleting")
+                #logging.info("Tracking failed for ID, deleting")
                 self.UFOS[i]=None
             
 
@@ -216,16 +218,16 @@ class DAA_Tracking:
 
         # Reject new rect if partially overlapping existing tracker 
         for ufo in self.UFOS:
-            for r in rects[:]: # TODO Any copy weirdness if we are deleting this way?
+            for r in rects[:]: # Make array deepcopy as iterating as deleting
                 t,f = IOU(ufo.bbox,r,DETECT_REJECT_THRESH)
                 if t:
                     rects.remove(r)
                 
 
-        # If an old tracker is within a new ddet rect by a wide margin then delete the tracker
+        # If an old tracker is within a new det rect by a wide margin then delete the tracker
         for i,ufo in enumerate(self.UFOS):
             for r in rects:
-                if inside_bbox(r,ufo.rect,TRACKER_OVERWRITE_THRESH):
+                if inside_bbox(r,ufo.bbox,TRACKER_OVERWRITE_THRESH):
                     #print("Deleting tracker bounded by new detection rect")
                     self.UFOS[i]=None
         
@@ -244,15 +246,12 @@ class DAA_Tracking:
     def run(self):
 
 
-        logging.info("Running")
-
-
         ap = ArgumentParser()
-        ap.add_argument('--HITL_PX4',action="store_true", default=False, dest='HITL_PX4')
+        #ap.add_argument('--HITL_PX4',action="store_true", default=False, dest='HITL_PX4')
         ap.add_argument('--HITL_DAA',action="store_true", default=False, dest='HITL_DAA')
         args = vars(ap.parse_args())
 
-        HITL_PX4=args['HITL_PX4']
+        #HITL_PX4=args['HITL_PX4']
         HITL_DAA=args['HITL_DAA']
 
 
@@ -265,7 +264,7 @@ class DAA_Tracking:
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") #57600,115200
 
             # TODO - add settings option for remote sim PC on network
-            cap = cv2.VideoCapture('http://192.168.1.148:5000/video_feed') # Stream remotely
+            cap = cv2.VideoCapture('http://192.168.1.149:5000/video_feed') # Stream remotely
 
         else:
 
@@ -290,6 +289,10 @@ class DAA_Tracking:
    
         # Loop over frames
         while True:
+
+
+            # Start timer
+            timer = cv2.getTickCount()
 
 
             # Grab next frame
@@ -319,8 +322,12 @@ class DAA_Tracking:
             if self.stop_event.is_set():
                 break
 
+            # Calculate Frames per second (FPS)
+            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
-        print("End >")
+            #print("FPS : " + str(int(fps)))
+
+
         cap.release()
         cv2.destroyAllWindows()
 
@@ -364,6 +371,8 @@ def daa_tracking(stop_event):
     daa=DAA_Tracking(stop_event)
     daa.run()
 
+#async def daa_tracking(stop_event):
+ #   await daa_tracking(stop_event)
 
 
 stop_event=threading.Event()
