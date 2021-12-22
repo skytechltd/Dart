@@ -21,6 +21,26 @@
 		{
 			"Name": "PixelStreaming",
 			"Enabled": true
+		},
+		{
+			"Name": "MagicLeapMedia",
+			"Enabled": false,
+			"SupportedTargetPlatforms": [
+				"Lumin"
+			]
+		},
+		{
+			"Name": "MagicLeap",
+			"Enabled": false,
+			"SupportedTargetPlatforms": [
+				"Lumin",
+				"Mac",
+				"Win64"
+			]
+		},
+		{
+			"Name": "VlcMedia",
+			"Enabled": false
 		}
 	],
 	"TargetPlatforms": [
