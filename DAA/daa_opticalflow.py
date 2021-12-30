@@ -1,3 +1,19 @@
+#
+# Copyright 2022 David Redpath - Sky Tech Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import asyncio
 from mavsdk import System
 from mavsdk.offboard import (OffboardError, PositionNedYaw)
@@ -18,12 +34,16 @@ logging.basicConfig(filename="daa_opticalflow.log",
                     level=logging.INFO)
 
 
+# Where to consume video stream from, this might be local or a remote computer, change to you own
+STREAM_HOST='http://192.168.1.149:5000/video_feed'
 
+#
 # TODO 
 #
-#   * pass cmd args here from runsim ???????
+#   * pass cmd args here from runsim?
 #   
-#   * Does DAA need to know about PX4? Perhps future aavlink signalling back to sim? (We tried Mvlink nd it was slow 1.5s)
+#   * Does DAA need to know about PX4? Perhaps future aavlink signalling back to sim? 
+#     (We tried Msvlink snd it was slow 1.5s)
 #
 
 
@@ -61,13 +81,13 @@ def daa_opticalflow(stop_event):
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") #57600,115200
 
         # TODO - add settings option for remote sim PC on network
-        cap = cv.VideoCapture('http://192.168.1.149:5000/video_feed') # Stream remotely
+        cap = cv.VideoCapture(STREAM_HOST) # Stream remotely
 
     else:
 
         #cap = cv.VideoCapture(0) # RaspPi default camera
         cap = cv.VideoCapture('http://0.0.0.0:5000/video_feed') # Stream
-        #cap = cv.VideoCapture('dronedirecthit.avi')
+        #cap = cv.VideoCapture('dronedirecthit.avi') # Video playback
 
 
 
@@ -90,7 +110,7 @@ def daa_opticalflow(stop_event):
 
 
         # Start timer
-        timer = cv.getTickCount()
+        #timer = cv.getTickCount()
 
 
         grabbed, frame = cap.read()
@@ -166,9 +186,9 @@ def daa_opticalflow(stop_event):
                 #break
 
         # Calculate Frames per second (FPS)
-        fps = cv.getTickFrequency() / (cv.getTickCount() - timer)
+        #fps = cv.getTickFrequency() / (cv.getTickCount() - timer)
 
-        #print("FPS : " + str(int(fps)))
+       # print("FPS : " + str(int(fps)))
 
         
         # Thread kill
@@ -176,12 +196,13 @@ def daa_opticalflow(stop_event):
             break
         
 
-
+# Unfinished!
 # Use offboard control to move the drone 5 to the right
 # Great - but we will dangerously lose control of the drone due to global motion false positives
 #
 # 
-'''async def do_avoid():
+'''
+async def do_avoid():
 
     drone = System()
     await drone.connect(system_address="serial:///dev/serial0:57600")
@@ -239,6 +260,5 @@ if __name__ == '__main__':
     
     loop = asyncio.get_event_loop()
     loop.run_until_complete(daa_opticalflow(stop_event))
-
-
-    #test()
+    # sync error throw if while loop exits, see 
+    # https://xinhuang.github.io/posts/2017-07-31-common-mistakes-using-python3-asyncio.html

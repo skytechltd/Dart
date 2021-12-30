@@ -1,3 +1,18 @@
+#
+# Copyright 2022 David Redpath - Sky Tech Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import asyncio
 from mavsdk import System
@@ -23,6 +38,9 @@ logging.basicConfig(filename="daa_tracking.log",
                     level=logging.INFO)
 
 
+# Where to consume video stream from, this might be local or a remote computer, change to you own
+STREAM_HOST='http://192.168.1.149:5000/video_feed'
+
 
 TRACKER_DELTA_THRESHHOLD=1.05
 TRACKER_OVERWRITE_THRESH=10
@@ -32,7 +50,6 @@ BBOX_MERGE_OFFSET=50
 DETECT_REJECT_THRESH = 100
 
 #(major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
-
 #print(major_ver,".",minor_ver)
 
 
@@ -52,8 +69,8 @@ class HQueue(queue.Queue):
         else:
             return 0
 
-class DAA_Tracking:
 
+class DAA_Tracking:
 
     class UFO:
         def __init__(self,bbox):
@@ -144,9 +161,13 @@ class DAA_Tracking:
                     print("Collision detection")
                     logging.info("Collision detection")
                     flag=True
+                # Drop the tracker if moving way
+                elif area <= self.UFOS[i].area:
+                   # self.UFOS[i]=None
+                    continue
                 else:
                     print("Waiting")
-                    logging.info("Waiting")
+                    #logging.info("Waiting")
                     pass
 
 
@@ -160,6 +181,11 @@ class DAA_Tracking:
                 #logging.info("Tracking failed for ID, deleting")
                 self.UFOS[i]=None
             
+
+            # 
+
+
+
 
         # Remove deleted marked None
         self.UFOS = [i for i in self.UFOS if i is not None]
@@ -189,7 +215,7 @@ class DAA_Tracking:
         frameDelta = cv2.GaussianBlur(frameDelta, (21, 21), 0)
         thresh = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
-	    # dilate the thresholded image to fill in holes, then find contours
+	    # dilate the thresholded image to fill in holes, then find contoursprint("Tracking %d objects"%(len(self.UFOS)))
 	    # on thresholded image
         thresh = cv2.dilate(thresh, None, iterations=2)
         cnts = cv2.findContours(thresh.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
@@ -263,8 +289,7 @@ class DAA_Tracking:
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") # Working, straight from USB
         #await drone.connect(system_address="serial:///dev/ttyACM0:115200") #57600,115200
 
-            # TODO - add settings option for remote sim PC on network
-            cap = cv2.VideoCapture('http://192.168.1.149:5000/video_feed') # Stream remotely
+            cap = cv2.VideoCapture(STREAM_HOST) # Stream remotely
 
         else:
 
@@ -275,7 +300,7 @@ class DAA_Tracking:
         # Video meta
         self.half_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH )/2
         self.half_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT )/2
-        self.fps =  cap.get(cv2.CAP_PROP_FPS)
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
 
         #print("Info: %dx%d %d FPS"%(self.half_width,self.half_height,self.fps))
 
@@ -296,17 +321,21 @@ class DAA_Tracking:
 
 
             # Grab next frame
-            grabbed, frame = cap.read()
+            grabbed, frame = cap.read() # TODO, throw error gracefully
             if not grabbed:
+                print("Error: frame not grabbed")
                 break
             #frame = imutils.resize(frame, width=500)
             currframe = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
   
             # Object Tracking - break if collision for simulator needs
-            if self.object_tracking(currframe,frame):
+            if self.object_tracking(currframe,frame) and not HITL_DAA:
+                print("Break tracking")
                 break
-  
+
+            #print("Tracking %d objects"%(len(self.UFOS)))
+
 
             # Object Detection
             self.object_detection(lastframe,currframe,frame)
@@ -325,14 +354,14 @@ class DAA_Tracking:
             # Calculate Frames per second (FPS)
             fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
-            #print("FPS : " + str(int(fps)))
+            print("FPS : " + str(int(fps)))
 
 
-        cap.release()
-        cv2.destroyAllWindows()
+        #cap.release()
+        #cv2.destroyAllWindows()
 
 
-
+# Unfinished!
 # Use offboard control to move the drone 5 to the right
 # Great - but we will dangerously lose control of the drone due to global motion false positives
 #
@@ -378,7 +407,6 @@ def daa_tracking(stop_event):
 stop_event=threading.Event()
 
 def start():
-
     t = threading.Thread(target=daa_tracking, args=(stop_event,), daemon=True)
     #t = threading.Thread(target=test, args=(stop_event,), daemon=True)
     t.start()
@@ -403,7 +431,5 @@ if __name__ == '__main__':
     
     loop = asyncio.get_event_loop()
     loop.run_until_complete(daa_tracking(stop_event))
-
-
-
-    #test()
+    # sync error throw if while loop exits, see 
+    # https://xinhuang.github.io/posts/2017-07-31-common-mistakes-using-python3-asyncio.html
