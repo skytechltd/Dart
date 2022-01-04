@@ -3,28 +3,22 @@
         "setting1": 0 
     },
     "daa_algos":[
-        {"opticalflow": "path?", "Args?": "?"}
+        {"opticalflow": "path?CurrentlyUnused", "Args?": "?"}
     ],
-    "comment": "Make sure this address is accessable on network and port 5000 is open",
-    "simhost_address": "192.168.1.148",
     "comment": "This could be default and overridden by scenario def - an insect vs a 747 will need a difference scenario vector set",
     "scenarios": {
-        "dron_spos": [0,0,-50],
-        "dron_epos": [0,0,-50],
+        "dron_spos": [0,0,-100],
+        "dron_epos": [0,0,-100],
         "dron_velc": 10, 
-        "pawn_epos": [5,0,-50],
+        "comment": "The first value end position should be set so the two meshes don't actually collide!",
+        "pawn_epos": [5,0,-100],
         "pawn_velc": 10,
-        "comment": "Careful for 45 below we don't get stuck in terrain!",
-        "pawn_sdist": 50,
-        "coll_dist": 5,
+        "comment": "Careful with distance for 45 below as pawn gets stuck in terrain!",
+        "pawn_sdist": 100,
+        "coll_dist": 20,
         "comment": "Ahead is 90,90, See https://en.wikipedia.org/wiki/Spherical_coordinate_system",
         "pawn_apr_ang": [[90,90],[45,90],[135,90],
                          [90,45],[45,45],[135,45],
                          [90,135],[45,135],[135,135]]
-     },
-    "pawns": [
-        {"id": "1mball",
-         "path": "?list of aircraft?"
-        }
-    ]
+     }
 }
