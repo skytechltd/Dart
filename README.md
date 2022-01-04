@@ -96,6 +96,11 @@ If you wish to run DAA algorithms on real hardware you can. We used a Raspberry 
 * Install git $sudo apt-get install, $git clone https://github.com/skytechltd/Dart
 * Install python packages $pip install opencv-python matplotlib scipy
 * On the simulation workstation check firewall ports are open to access the video stream.
+
+## HITL Benchmarking
+We attempted to reconciliate logs on the sim and hardware to find DAA accuracy but we found the lag from video streaming and slow HW performance made this too inaccurate. We welcome discussions how to do this better such as timestamoing the stream or using sim recordings if HW interaction isn't present. Realistically the whole system needs reviewed to improve speed and better understand the bottle necks. In the meantime SITL assessment is still very reliable!
+
+
 ## Future Work
 An original aim of DART was to include augmented reality to test DAA on a real drone in flight. We found this was going to be months/years of work to customise a plugin and firmware for RaspberryPi/Jetson. The tools exisit for Android/iOS devices and it’s possible to stream from a mobile device into the mission computer but such actions were deemed a novelty in the end over conducting solid research.
 We found the two DAA algorithms we specified to be sensitive to global movement and unsuitable for practical application. Working on new robust DAA algorithms is therefore essential.
