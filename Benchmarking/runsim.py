@@ -1,7 +1,28 @@
+#
+# Copyright 2022 David Redpath - Sky Tech Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import airsim
 import sys
 import threading
 import logging
+logging.basicConfig(filename="DAA_HITL_REF.log",
+                    filemode='w',
+                    format='%(asctime)s,%(msecs)d %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO)
 import time
 import pprint
 import math
@@ -12,14 +33,20 @@ from enum import Enum, unique
 
 
 sys.path.insert(0, '../DAA')
-#import daa_opticalflow as daa
-import daa_tracking as daa
+
+#
+# Manually change the DAA algo to test
+#
+import daa_opticalflow as daa
+#import daa_tracking as daa
 
 
 DEFAULT_SETUPS='setups.json'
 RES_FILE='daares.csv'
 HITL_PX4=False
-HITL_DAA=False
+HITL_DAA=True
+
+
 
 
 #
@@ -35,13 +62,7 @@ HITL_DAA=False
 #
 #
 # TODO:
-#   * Logging
-#
-#   * Support scenarios, 0 a flight - reject FP, 1 single collision, 2 multiple
-#
-#   * Pawn to seek drone, not just assume its at waypoint - important for smaller pawns
-#
-#
+#   * Logging, support multiple, currently HITL_DAA using default logger
 #
 #
 # Future Features:
@@ -57,13 +78,6 @@ class Detection(Enum):
     TRUE = 1
     FALSE = -1
 
-
-#class WayPoint:
-    #def __init__(self,s,e,v):
-        #self.start=aims)
-       # self.end=Pos(e)
-        #self.v=v
-        #self.pos3darray=[x,y,z]
 
 class AirVehicle:
     ACC_DELAY = 2 # Small delay until vehicle gets up to speed then assume t=d*s
@@ -129,7 +143,7 @@ class Collision:
 
 
     # Collide the drone and pawn
-    def start(self,cl,drone,pawn):
+    def start(self,cl,drone,pawn,testname):
 
         self.setVehicles(drone,pawn)
 
@@ -152,7 +166,7 @@ class Collision:
         dt.join()
         pt.join()
       
-        #return
+     
 
 
         # Let drone settle as global motion from terrain is throwing false positive with optical flow first round
@@ -161,7 +175,10 @@ class Collision:
         # Debug
         #airsim.wait_key('Press any key to collide')
 
-
+        # Insert parsing marker, start
+        if HITL_DAA:
+            logging.info("StartTest: %s"%(testname))
+                
 
         # Two approaches, we either:
         # A. Move the pawn to collide with the drone (same position and check) for collision, 
@@ -193,10 +210,11 @@ class Collision:
         #pt.join()
 
 
-
+        
         # Loop until we collide
         detection=Detection.MISSED
         while True:
+
             # These are wrt object local coordinates, we need to add offset to work out global
             dronepos = cl.getMultirotorState(vehicle_name="Drone").kinematics_estimated.position
             pawnpos = cl.getMultirotorState(vehicle_name=pawn.name).kinematics_estimated.position
@@ -208,12 +226,18 @@ class Collision:
             #can call update(x,y,z) then do collision.distanceto, hascollided=false
             self.update(dronepos,pawnpos)
 
+            # HITL DAA has no signalling, two log files used, on this workstation, and remototely, timestamps used to tie up results
+            if HITL_DAA:
+                # Log time to ms, distance
+                logging.info("%f.1"%(self.distance))
+
+
             # Missed detection,det=MISSED set above 
-            if self.hascollided:                
-                print("Pawn ended, killing DAA") 
-                if not HITL_DAA:
+            if self.hascollided:
+
+                if not HITL_DAA:                
+                    print("Pawn ended, killing DAA")
                     # Stop DAA thread gracefully
-                    print(">>DAA Stop >>")
                     daa.stop()
                 break
 
@@ -225,46 +249,25 @@ class Collision:
                 break
 
 
-            # Has DAA been triggered offboard?
-            #if HITL_DAA:
-            #    print("????????")
+        # Insert parsing marker, end
+        if HITL_DAA:
+            logging.info("EndTest")
 
-            # TODO - How to signal from HITL mission PC DAA fired?
+        
+        # Log SITL DAA here
+        if not HITL_DAA:
+         
+            # Record result, det: 1, miss 0, fa 
+            # Todo: Python 3.10> has match-case to make this more C like
+            if Detection.MISSED == detection:
+                print("Missed Detection")
+            elif Detection.TRUE == detection:
+                print("True Detection")
+            else: #Detection.FALSE == detection:
+                print("False Detection")
 
-            # Approaches?
-            # Custom Mavlink message
-            # Is it moving
-
-            # ??????
-
-            #yuck keep reading mavlink param for a setting to receive DAA signal, then reset it after!
-
-            #at start of next run, it will keep pinging away! The DAA needs to back off as we only need the pos3darray
-            #signal the once!
-
-
-
-
-            # ???????
-
-
-
-            # Debug only as the delay skews the daa result
-            #time.sleep(1)
-
-
-
-        # Record result, det: 1, miss 0, fa 
-        # Todo: Python 3.10> has match-case to make this more C like
-        if Detection.MISSED == detection:
-            print("Missed Detection")
-        elif Detection.TRUE == detection:
-            print("True Detection")
-        else: #Detection.FALSE == detection:
-           print("False Detection")
-
-        with open(RES_FILE,'a') as f:
-            f.write("%d %.2f {apr_ang=[%d,%d]}\n"%(detection.value, self.distance, pawn.approach[0], pawn.approach[1]))
+            with open(RES_FILE,'a') as f:
+                f.write("%d %.2f {apr_ang=[%d,%d]}\n"%(detection.value, self.distance, pawn.approach[0], pawn.approach[1]))
             #f.write("(%.1f,%.1f,%.1f) %d %.2f\n"%(pawn.end.x, pawn.end.y, pawn.end.z, detection.value, collision.distance))
 
    
@@ -345,6 +348,7 @@ class Collisions:
                             self.setup['pawn_epos'],self.setup['pawn_velc'],yaw=ang[0])
                 self.collisions.append(v)
 
+            # TODO - Just do the first for now!
             break # DEBUG - REMOVE
 
 
@@ -384,6 +388,9 @@ class Collisions:
         cl.armDisarm(True, "_Cessna")
 
 
+
+
+
          # With HITL based on lat,lon we will be at altitude not (0,0,0)
         if HITL_PX4:
             dp = cl.getMultirotorState(vehicle_name="Drone").kinematics_estimated.position
@@ -402,17 +409,20 @@ class Collisions:
         i=1
         for pawn in self.collisions:
             print("Running simulation for %s %d of %d..."%(pawn.name,i,len(self.collisions)))
-            #break
             
+            testname = str(self.setup['pawn_apr_ang'][i-1]).replace(' ', '')
+
             # Convert to global positions
             pawn.start = pawn.start - pawn.offset
             pawn.end = pawn.end - pawn.offset
 
-            # Average over additional runs
+            # Test run once - Average over additional runs
             for _ in range(1):
                 c=Collision(self.setup)
-                c.start(self.client,self.drone,pawn)
+                c.start(self.client,self.drone,pawn,testname)
+
             i+=1
+
             #break # Debug
 
    
@@ -469,8 +479,9 @@ if __name__ == '__main__':
     
     c=Collisions()
     c.start()
+
     
-  
+
 
 
 
